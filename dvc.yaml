@@ -1,0 +1,10 @@
+stages:
+  prepare:
+    cmd: python -m src.data.dataset
+    deps:
+      - src/data/dataset.py
+      - data/raw
+    params:
+      - prepare
+    outs:
+      - data/processed

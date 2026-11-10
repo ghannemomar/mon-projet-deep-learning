@@ -1,0 +1,13 @@
+prepare:
+  max_side: 1280   # grand côté des images après redimensionnement
+  val_frac: 0.1    # part du train officiel gardée pour la validation
+  seed: 42
+train:
+  model: yolov8n   # baseline (comparable au benchmark SH17)
+  imgsz: 640
+  epochs: 30
+  batch: 32
+  patience: 10
+  seed: 42
+  cache: ram       # images gardées en mémoire : entraînement plus rapide sur Kaggle
+  workers: 4
