@@ -1,0 +1,9 @@
+ultralytics>=8.3.0
+mlflow==2.19.0
+dvc>=3.50
+onnx>=1.16
+onnxslim
+onnxruntime
+pandas
+matplotlib
+pyyaml
