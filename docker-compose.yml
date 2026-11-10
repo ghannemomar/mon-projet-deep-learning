@@ -1,0 +1,42 @@
+# Lancement de toute la solution :  docker-compose up --build
+#   Frontend : http://localhost:3000
+#   API      : http://localhost:8000/docs  (Swagger)
+#   MLflow   : http://localhost:5000       (runs + Model Registry)
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/mlruns
+      --host 0.0.0.0 --port 5000
+    volumes:
+      - ./mlflow:/mlflow          # dossier mlflow/ récupéré depuis Kaggle
+    ports:
+      - "5000:5000"
+
+  backend:
+    build: ./backend
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000   # modèle lu dans le Registry (alias production)
+      MODEL_NAME: sh17-ppe-detector
+      MODEL_ALIAS: production
+      MODEL_PATH: /models/model.onnx           # secours si le Registry est vide
+      CORS_ORIGINS: "*"
+    volumes:
+      - ./models:/models:ro
+      - ./mlflow:/mlflow:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend

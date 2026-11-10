@@ -1,0 +1,141 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\IfFileExists{french.ldf}{\usepackage[french]{babel}}{%
+  \AtBeginDocument{\renewcommand{\abstractname}{Résumé}\renewcommand{\refname}{Références}\renewcommand{\tablename}{Tableau}}}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs,graphicx,hyperref,xcolor,listings,float}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,columns=fullflexible}
+% Valeur à compléter après l'entraînement (affichée en rouge tant qu'elle n'est pas remplie)
+\newcommand{\TODO}[1]{\textcolor{red}{#1}}
+
+\title{Détection d'équipements de protection individuelle en temps réel\\
+\large Rapport technique — Module Deep Learning Avancé (Axe 3, YOLO)}
+\author{Omar Ghannem \and \TODO{Membre 2} \and \TODO{Membre 3}\\
+Cycle ingénieur IA \& Data Science, 3\textsuperscript{e} année — TEK-UP\\
+Enseignant : Haythem Ghazouani}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Nous présentons un système complet de détection de personnes et d'équipements de protection
+individuelle (EPI) en milieu de travail, de l'entraînement au déploiement web. Des modèles YOLO
+sont entraînés sur le dataset public SH17 (8\,099 images, 17 classes), suivis avec MLflow,
+exportés en ONNX et servis par une API FastAPI consommée par une interface React avec webcam.
+Une règle de conformité déclenche une alerte lorsqu'une tête est détectée sans casque.
+La chaîne est reproductible (DVC, MLflow, Docker Compose) et testée par GitHub Actions.
+Le meilleur modèle atteint \TODO{XX,X}\,\% de mAP@50 sur le jeu de test.
+\end{abstract}
+
+\section{Problématique et objectifs}
+Le contrôle du port des EPI est aujourd'hui surtout manuel. Problématique : \emph{comment détecter
+automatiquement et en temps réel, via une application web, les personnes et leurs équipements de
+protection, et alerter en cas de non-conformité ?}
+
+Objectifs mesurables : (1) baseline YOLO nano proche des 58,0\,\% mAP@50 publiés pour YOLOv8n ;
+(2) comparaison d'au moins deux architectures sur mAP@[.5:.95] et latence ; (3) effet de la
+résolution d'entrée (640 contre 960) ; (4) export ONNX et gain de latence mesuré ; (5) API et
+frontend avec webcam et alerte.
+
+\section{Données}
+\subsection{Le dataset SH17}
+SH17 \cite{sh17} contient 8\,099 images issues de Pexels, 75\,994 instances et 17 classes, au format
+YOLO, sous licence CC BY-NC-SA 4.0 (usage académique). L'ordre des identifiants est celui du fichier
+\texttt{sh17.yaml} (alphabétique), différent du README ; nous l'avons vérifié visuellement.
+
+\subsection{Exploration et qualité}
+\begin{itemize}
+  \item Aucune image corrompue, aucune annotation invalide, aucun doublon, aucune fuite train/val.
+  \item Fort déséquilibre : ratio max/min de 118,3 (\texttt{hands} 15\,850 contre \texttt{face-guard} 134) ;
+        les EPI clés sont rares (\texttt{helmet} 927, \texttt{safety-vest} 530).
+  \item Petits objets : 35,7\,\% des boîtes font moins de 32\,px à 640\,px d'entrée (oreilles 92\,\%, pieds 72\,\%).
+  \item Densité moyenne de 9,4 objets par image ; résolutions de 1335$\times$1002 à 8192$\times$8192.
+  \item Contenu : surtout des bureaux et ateliers, peu de chantiers.
+\end{itemize}
+
+\subsection{Protocole de découpage}
+\begin{table}[H]\centering
+\begin{tabular}{llr}\toprule
+Split & Origine & Images\\\midrule
+train & 90\,\% du train officiel & 5\,831\\
+val & 10\,\% du train officiel (seed 42) & 648\\
+test & val officiel (comparable au benchmark) & 1\,620\\\bottomrule
+\end{tabular}\end{table}
+Le découpage est fait une seule fois, avant toute augmentation, par le stage DVC \texttt{prepare}
+qui réduit aussi les images à 1\,280\,px de grand côté (les labels normalisés restent valides).
+Le choix du meilleur modèle se fait sur la validation ; le test ne sert qu'au rapport final.
+
+\section{Modélisation}
+Nous utilisons la famille YOLO (Ultralytics) en transfer learning depuis COCO : un réseau de
+détection en une passe, adapté au temps réel. Trois runs, même seed et même budget :
+\begin{enumerate}
+  \item \textbf{baseline} YOLOv8n, 640\,px, 30 epochs (même modèle que le benchmark publié) ;
+  \item \textbf{YOLO26n} (ou YOLO11n), 640\,px, 30 epochs : architecture récente, sortie sans NMS ;
+  \item YOLOv8n à \textbf{960\,px}, 20 epochs : effet de la résolution sur les petits objets.
+\end{enumerate}
+Augmentations Ultralytics par défaut (mosaïque, HSV, flips, translation/échelle), early stopping
+(patience 10), sélection sur le mAP@[.5:.95] de validation.
+
+\section{Résultats}
+\begin{table}[H]\centering
+\begin{tabular}{lrrrrr}\toprule
+Run & val mAP50-95 & test mAP50 & test mAP50-95 & AP50 helmet & GPU (ms)\\\midrule
+baseline-yolov8n-640 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\
+yolo26n-640 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\
+yolov8n-960 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\\midrule
+Référence YOLOv8n \cite{sh17} & -- & 58,0 & 36,6 & -- & --\\\bottomrule
+\end{tabular}
+\caption{Comparaison des modèles (source : \texttt{reports/comparison.csv}, MLflow).}
+\end{table}
+
+\paragraph{Analyse par taille d'objet.} Rappel à IoU 0,5 du meilleur modèle :
+$<$16\,px : \TODO{} ; 16--32\,px : \TODO{} ; 32--96\,px : \TODO{} ; $>$96\,px : \TODO{}.
+\TODO{Commenter : les petits objets sont-ils la principale source d'erreurs ? Le passage à 960 px aide-t-il ?}
+
+\paragraph{Analyse par classe.} \TODO{Commenter les AP de helmet et safety-vest (classes rares) et la matrice de confusion.}
+
+\section{Export ONNX et latence}
+Le meilleur modèle est exporté en ONNX (opset 12, entrée fixe). Sur CPU, à entrée identique :
+PyTorch \TODO{} ms contre ONNX Runtime \TODO{} ms (médiane sur 50 passages), soit un gain de
+\TODO{}$\times$. L'écart de mAP@50 entre ONNX et PyTorch sur le test est de \TODO{} point(s) ;
+s'il est inférieur à 2 points, la version passe de l'alias \texttt{staging} à \texttt{production}
+dans le MLflow Model Registry.
+
+\section{Architecture logicielle et MLOps}
+\begin{itemize}
+  \item \textbf{DVC} : \texttt{dvc.yaml} (stage \texttt{prepare}), \texttt{params.yaml}, \texttt{dvc.lock}
+        (empreintes des données) ; aucune donnée ni aucun poids dans Git.
+  \item \textbf{MLflow} : paramètres, courbes par epoch, métriques de test par classe, artefacts
+        (poids, matrice de confusion, analyse par taille), Model Registry avec alias.
+  \item \textbf{API FastAPI} : \texttt{/health}, \texttt{/model/metadata}, \texttt{/predict},
+        \texttt{/predict/visualize} ; schémas Pydantic, Swagger sur \texttt{/docs}, erreurs 400 et 503,
+        modèle ONNX chargé une seule fois au démarrage, inférence hors de la boucle asynchrone.
+  \item \textbf{Frontend React} : glisser-déposer, galerie d'exemples, webcam, canvas de boîtes
+        colorées par classe, bandeau d'alerte, latences client et serveur.
+  \item \textbf{Docker Compose} : services \texttt{mlflow}, \texttt{backend}, \texttt{frontend}
+        (images multi-stage) lancés par \texttt{docker-compose up --build}.
+  \item \textbf{GitHub Actions} : black, flake8, 18 tests pytest, eslint, build du frontend, build Docker.
+\end{itemize}
+
+\paragraph{Règle d'alerte.} Une tête est conforme si le centre d'un casque se trouve dans sa boîte
+agrandie de 50\,\% vers le haut. On part de \texttt{head} (abondante) plutôt que de \texttt{person}.
+
+\section{Limites et perspectives}
+\begin{itemize}
+  \item Classes EPI rares (\texttt{helmet}, \texttt{safety-vest}) : fausses alertes possibles ;
+        piste : sur-échantillonnage ciblé ou ajout d'un dataset de chantiers.
+  \item Budget GPU limité (Kaggle) : 20 à 30 epochs au lieu de plusieurs centaines dans le papier.
+  \item Scènes surtout de bureaux : la démo webcam détecte bien \texttt{head}, \texttt{face}, \texttt{hands},
+        moins bien les casques sans accessoire réel.
+  \item Perspectives : modèle \texttt{s}, résolution 1280, suivi multi-objets, quantification INT8.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{sh17} H.~M. Ahmad, A.~Rahimi, \emph{SH17: A Dataset for Human Safety and Personal Protective
+Equipment Detection in Manufacturing Industry}, arXiv:2407.04590, 2024.
+\bibitem{yolo} G.~Jocher et al., \emph{Ultralytics YOLO}, \url{https://github.com/ultralytics/ultralytics}.
+\end{thebibliography}
+\end{document}

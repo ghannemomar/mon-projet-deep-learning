@@ -1,0 +1,26 @@
+name: CI - build Docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire les images (backend + frontend, multi-stage)
+        run: docker compose build
+      - name: Démarrer et vérifier l'API
+        run: |
+          docker compose up -d backend
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 3
+          done
+          curl -sf http://localhost:8000/health
+          curl -sf http://localhost:8000/openapi.json > /dev/null
+      - name: Arrêter
+        if: always()
+        run: docker compose down
