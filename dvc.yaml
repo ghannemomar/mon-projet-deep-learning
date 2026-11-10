@@ -3,11 +3,10 @@ stages:
     cmd: python -m src.data.dataset
     deps:
       - src/data/dataset.py
-      # Les listes de fichiers + les labels identifient les données ; on ne hache pas les
-      # 14 Go d'images à chaque exécution (30 min sur Kaggle) : elles sont figées par la liste.
+      # Les listes de fichiers identifient les données (version figée de SH17) ; on ne hache pas
+      # les 14 Go d'images à chaque exécution (30 min sur le disque réseau de Kaggle).
       - data/raw/train_files.txt
       - data/raw/val_files.txt
-      - data/raw/labels
     params:
       - prepare
     outs:
