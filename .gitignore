@@ -3,11 +3,11 @@
 /data/processed
 *.pt
 *.onnx
-runs/
-mlruns/
-mlflow/
-models/
-reports/
+/runs/
+/mlruns/
+/mlflow/
+/models/
+/reports/
 # Python
 .venv/
 __pycache__/
