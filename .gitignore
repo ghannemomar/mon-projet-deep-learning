@@ -1,0 +1,20 @@
+# Données, poids et suivis : gérés par DVC / MLflow, jamais dans Git
+/data/raw
+/data/processed
+*.pt
+*.onnx
+runs/
+mlruns/
+mlflow/
+models/
+reports/
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Node
+node_modules/
+frontend/dist/
+# Secrets
+.env
