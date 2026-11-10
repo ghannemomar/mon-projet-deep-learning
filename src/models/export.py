@@ -58,7 +58,7 @@ def main() -> None:
     print(f"Export du run {run.info.run_name} ({run_id}), imgsz={imgsz}")
 
     model = YOLO(weights)
-    onnx_path = Path(model.export(format="onnx", imgsz=imgsz, opset=12, simplify=True, dynamic=False))
+    onnx_path = Path(model.export(format="onnx", imgsz=imgsz, opset=17, simplify=True, dynamic=False))
 
     # latence CPU du réseau seul (même tenseur d'entrée pour les deux moteurs)
     cfg_path = "runs/data.yaml"
@@ -100,7 +100,9 @@ def main() -> None:
         )
 
     client = MlflowClient()
-    version = info.registered_model_version or client.get_latest_versions(MODEL_NAME)[0].version
+    version = getattr(info, "registered_model_version", None)
+    if version is None:
+        version = max(int(v.version) for v in client.search_model_versions(f"name='{MODEL_NAME}'"))
     client.set_registered_model_alias(MODEL_NAME, "staging", version)
     client.set_model_version_tag(MODEL_NAME, version, "imgsz", str(imgsz))
     client.set_model_version_tag(MODEL_NAME, version, "run_name", run.info.run_name)
