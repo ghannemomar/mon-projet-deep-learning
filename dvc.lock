@@ -1,0 +1,29 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python -m src.data.dataset
+    deps:
+    - path: data/raw/train_files.txt
+      hash: md5
+      md5: 4c2514534c18fb39ab56fd16e04526d6
+      size: 175811
+    - path: data/raw/val_files.txt
+      hash: md5
+      md5: ad74df7d406779b8eacb7f1a84ebd107
+      size: 43916
+    - path: src/data/dataset.py
+      hash: md5
+      md5: 5f8301e2462dc49a12ffd9dec04e64e7
+      size: 3799
+    params:
+      params.yaml:
+        prepare:
+          max_side: 1280
+          val_frac: 0.1
+          seed: 42
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: 16f5e25ef03fbc2e057ed4245183e161.dir
+      size: 1860457268
+      nfiles: 16200
