@@ -105,5 +105,18 @@ Les tests de l'API n'ont pas besoin des poids : le modèle est remplacé par un 
 
 ## Résultats
 
-Voir le tableau `reports/comparison.csv` (généré par `evaluate.py`) et l'expérience `sh17-ppe` dans MLflow.
-Repères publiés sur SH17 : YOLOv8n 58,0 mAP50 / 36,6 mAP50-95 ; YOLOv9-e 70,9 / 48,7.
+Trois runs suivis dans MLflow (expérience `sh17-ppe`), même seed, même split. Choix du meilleur sur la validation.
+
+| Run | val mAP50-95 | test mAP50 | test mAP50-95 | AP50 helmet | AP50 safety-vest | GPU (ms) |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline-yolov8n-640 (30 epochs) | 32,0 % | 52,7 % | 32,4 % | 60,7 % | 42,2 % | 3,1 |
+| yolo26n-640 (30 epochs) | 32,3 % | 53,3 % | 33,2 % | 62,3 % | 38,5 % | 3,1 |
+| **yolov8n-960** (20 epochs) | **33,7 %** | **56,9 %** | **35,0 %** | **68,5 %** | 39,7 % | 7,5 |
+| Référence publiée YOLOv8n | — | 58,0 % | 36,6 % | — | — | — |
+
+Rappel du meilleur modèle par taille d'objet (test, IoU 0,5) : < 16 px 22,9 % · 16-32 px 63,0 % · 32-96 px 78,9 % · > 96 px 87,8 %.
+
+Export ONNX (yolov8n-960, CPU Kaggle) : PyTorch 216,9 ms → ONNX Runtime 141,6 ms (×1,53).
+Model Registry : `sh17-ppe-detector` v2 (yolov8n-960) en `production` ; v1 (yolo26n-640) conservée.
+
+Rapport complet : `rapport_technique.pdf` (source LaTeX dans `report/`).

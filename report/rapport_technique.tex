@@ -13,7 +13,7 @@
 
 \title{Détection d'équipements de protection individuelle en temps réel\\
 \large Rapport technique — Module Deep Learning Avancé (Axe 3, YOLO)}
-\author{Omar Ghannem \and \TODO{Membre 2} \and \TODO{Membre 3}\\
+\author{Omar Ghannem\\
 Cycle ingénieur IA \& Data Science, 3\textsuperscript{e} année — TEK-UP\\
 Enseignant : Haythem Ghazouani}
 \date{\today}
@@ -27,7 +27,7 @@ sont entraînés sur le dataset public SH17 (8\,099 images, 17 classes), suivis 
 exportés en ONNX et servis par une API FastAPI consommée par une interface React avec webcam.
 Une règle de conformité déclenche une alerte lorsqu'une tête est détectée sans casque.
 La chaîne est reproductible (DVC, MLflow, Docker Compose) et testée par GitHub Actions.
-Le meilleur modèle atteint \TODO{XX,X}\,\% de mAP@50 sur le jeu de test.
+Le meilleur modèle (YOLOv8n à 960\,px) atteint 56,9\,\% de mAP@50 et 35,0\,\% de mAP@[.5:.95] sur le jeu de test, proche des 58,0\,\% publiés, avec 20 epochs seulement ; l'export ONNX divise la latence CPU par 1,5.
 \end{abstract}
 
 \section{Problématique et objectifs}
@@ -73,7 +73,7 @@ Nous utilisons la famille YOLO (Ultralytics) en transfer learning depuis COCO : 
 détection en une passe, adapté au temps réel. Trois runs, même seed et même budget :
 \begin{enumerate}
   \item \textbf{baseline} YOLOv8n, 640\,px, 30 epochs (même modèle que le benchmark publié) ;
-  \item \textbf{YOLO26n} (ou YOLO11n), 640\,px, 30 epochs : architecture récente, sortie sans NMS ;
+  \item \textbf{YOLO26n}, 640\,px, 30 epochs : architecture récente, sortie sans NMS ;
   \item YOLOv8n à \textbf{960\,px}, 20 epochs : effet de la résolution sur les petits objets.
 \end{enumerate}
 Augmentations Ultralytics par défaut (mosaïque, HSV, flips, translation/échelle), early stopping
@@ -82,27 +82,51 @@ Augmentations Ultralytics par défaut (mosaïque, HSV, flips, translation/échel
 \section{Résultats}
 \begin{table}[H]\centering
 \begin{tabular}{lrrrrr}\toprule
-Run & val mAP50-95 & test mAP50 & test mAP50-95 & AP50 helmet & GPU (ms)\\\midrule
-baseline-yolov8n-640 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\
-yolo26n-640 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\
-yolov8n-960 & \TODO{} & \TODO{} & \TODO{} & \TODO{} & \TODO{}\\\midrule
+Run & val mAP50-95 & test mAP50 & test mAP50-95 & AP50 helmet & GPU (ms)\\
+ & (\%) & (\%) & (\%) & (\%) & \\\midrule
+baseline-yolov8n-640 & 32,0 & 52,7 & 32,4 & 60,7 & 3,1\\
+yolo26n-640 & 32,3 & 53,3 & 33,2 & 62,3 & 3,1\\
+\textbf{yolov8n-960} & \textbf{33,7} & \textbf{56,9} & \textbf{35,0} & \textbf{68,5} & 7,5\\
+\midrule
 Référence YOLOv8n \cite{sh17} & -- & 58,0 & 36,6 & -- & --\\\bottomrule
 \end{tabular}
 \caption{Comparaison des modèles (source : \texttt{reports/comparison.csv}, MLflow).}
 \end{table}
 
-\paragraph{Analyse par taille d'objet.} Rappel à IoU 0,5 du meilleur modèle :
-$<$16\,px : \TODO{} ; 16--32\,px : \TODO{} ; 32--96\,px : \TODO{} ; $>$96\,px : \TODO{}.
-\TODO{Commenter : les petits objets sont-ils la principale source d'erreurs ? Le passage à 960 px aide-t-il ?}
+\paragraph{Lecture du tableau.} Le choix se fait sur la validation : \texttt{yolov8n-960} est le meilleur
+(33,7\,\% de mAP@[.5:.95]) et le test le confirme. À même résolution, YOLO26n fait un peu mieux que
+YOLOv8n (+0,6 point de mAP@50, +0,8 point de mAP@[.5:.95]) pour la même latence GPU. Le passage de 640 à
+960\,px apporte le gain le plus net (+4,2 points de mAP@50, +7,8 points d'AP@50 sur \texttt{helmet}), au prix
+d'une latence GPU 2,5 fois plus élevée. À 640\,px, notre baseline (52,7\,\%) reste sous les 58,0\,\% publiés :
+nous n'avons fait que 30 epochs.
 
-\paragraph{Analyse par classe.} \TODO{Commenter les AP de helmet et safety-vest (classes rares) et la matrice de confusion.}
+\paragraph{Analyse par taille d'objet.} Rappel à IoU 0,5 du meilleur modèle sur le test (taille vue par le
+réseau, racine de l'aire de la boîte) :
+
+\begin{table}[H]\centering
+\begin{tabular}{lrrr}\toprule
+Taille & Objets & Détectés & Rappel\\\midrule
+$<$16\,px & 1\,472 & 337 & 22,9\,\%\\
+16--32\,px & 2\,103 & 1\,324 & 63,0\,\%\\
+32--96\,px & 5\,518 & 4\,354 & 78,9\,\%\\
+$>$96\,px & 6\,265 & 5\,501 & 87,8\,\%\\\bottomrule
+\end{tabular}\end{table}
+Les très petits objets sont la principale source d'erreurs : moins d'un sur quatre est retrouvé, contre près
+de 9 sur 10 pour les grands. C'est ce qui explique le gain apporté par la résolution 960\,px.
+
+\paragraph{Analyse par classe.} Les EPI clés restent les plus difficiles : \texttt{helmet} atteint 68,5\,\%
+d'AP@50 mais \texttt{safety-vest} seulement 39,7\,\% (530 instances, la classe EPI la plus rare après
+\texttt{face-guard} et \texttt{medical-suit}). La règle d'alerte reposant sur \texttt{helmet}, un casque
+manqué produit une fausse alerte.
 
 \section{Export ONNX et latence}
-Le meilleur modèle est exporté en ONNX (opset 12, entrée fixe). Sur CPU, à entrée identique :
-PyTorch \TODO{} ms contre ONNX Runtime \TODO{} ms (médiane sur 50 passages), soit un gain de
-\TODO{}$\times$. L'écart de mAP@50 entre ONNX et PyTorch sur le test est de \TODO{} point(s) ;
-s'il est inférieur à 2 points, la version passe de l'alias \texttt{staging} à \texttt{production}
-dans le MLflow Model Registry.
+Le meilleur modèle (\texttt{yolov8n-960}) est exporté en ONNX (opset 17, entrée fixe 960$\times$960).
+Sur le CPU de Kaggle, à entrée identique : PyTorch 216,9\,ms contre ONNX Runtime 141,6\,ms (médiane sur 50
+passages après 10 d'échauffement), soit un gain de 1,53$\times$. L'écart de mAP@50 entre ONNX et PyTorch sur le
+test étant inférieur à 2 points, la version 2 de \texttt{sh17-ppe-detector} est passée de l'alias
+\texttt{staging} à \texttt{production} dans le MLflow Model Registry (la version 1, YOLO26n, issue du premier
+export, reste disponible). Sur un ordinateur portable, l'API mesure environ 190\,ms d'inférence à 960\,px,
+soit environ 4 images par seconde en webcam ; le modèle à 640\,px serait environ 2 fois plus rapide.
 
 \section{Architecture logicielle et MLOps}
 \begin{itemize}
@@ -127,7 +151,7 @@ agrandie de 50\,\% vers le haut. On part de \texttt{head} (abondante) plutôt qu
 \begin{itemize}
   \item Classes EPI rares (\texttt{helmet}, \texttt{safety-vest}) : fausses alertes possibles ;
         piste : sur-échantillonnage ciblé ou ajout d'un dataset de chantiers.
-  \item Budget GPU limité (Kaggle) : 20 à 30 epochs au lieu de plusieurs centaines dans le papier.
+  \item Budget GPU limité (Kaggle) : 20 à 30 epochs seulement, loin d'un entraînement complet.
   \item Scènes surtout de bureaux : la démo webcam détecte bien \texttt{head}, \texttt{face}, \texttt{hands},
         moins bien les casques sans accessoire réel.
   \item Perspectives : modèle \texttt{s}, résolution 1280, suivi multi-objets, quantification INT8.
